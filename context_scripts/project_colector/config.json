@@ -1,0 +1,20 @@
+{
+  "DEFAULT_IGNORED_DIRS": [
+    ".git",
+    "node_modules",
+    ".venv",
+    "build",
+    "dist",
+    "__pycache__",
+    "context_scripts"
+  ],
+  "DEFAULT_IGNORED_FILES": [
+    "config_default.json",
+    "config.json"
+  ],
+  "ADDITIONAL_IGNORED_DIRS": [],
+  "ADDITIONAL_IGNORED_FILES": [],
+  "INCLUDE_FOLDER_PATTERNS": [],
+  "INCLUDE_FILE_PATTERNS": [],
+  "INCLUDE_CONTENT_PATTERNS": []
+}

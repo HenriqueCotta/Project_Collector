@@ -6,9 +6,15 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [
-            'projcol=project_collector.cli:main',
+            'projcol=project_collector.cli:run',
         ],
     },
     install_requires=[],
     include_package_data=True,
+    package_data={
+        "project_collecto": [
+            "configs/defaults/*.json",
+            "configs/requests/*.json"
+            ]
+    },
 )
