@@ -1,0 +1,17 @@
+{
+    // garanta que o linting esteja ligado
+    "python.linting.enabled": true,
+    // escolha O SEU linter instalado:
+    // se instalou pylint:
+    "python.linting.pylintEnabled": true,
+    // OU se preferir flake8:
+    // "python.linting.pylintEnabled": false,
+    // "python.linting.flake8Enabled": true,
+    // (opcional) rodar lint ao salvar
+    "editor.codeActionsOnSave": {
+        "source.fixAll": true
+    },
+    // certifica-se de usar o Pylance para análise estática
+    "python.languageServer": "Pylance",
+    "python.analysis.typeCheckingMode": "basic"
+}

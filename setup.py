@@ -12,7 +12,7 @@ setup(
     install_requires=[],
     include_package_data=True,
     package_data={
-        "project_collecto": [
+        "project_collector": [
             "configs/defaults/*.json",
             "configs/requests/*.json"
             ]

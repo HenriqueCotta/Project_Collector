@@ -1,4 +1,8 @@
 
+--- .\output_coleta.txt:START ---
+
+--- .\output_coleta.txt:START ---
+
 --- .\config_defaults.json:START ---
 {
     "DEFAULT_IGNORED_DIRS": {
@@ -496,6 +500,1302 @@ def print_tree(tree: Dict[str, Any], prefix: str = "") -> str:
 
 Project_Collector
 ├── >>> config_defaults.json <<<
+├── >>> output_coleta.txt <<<
+├── project_collector
+│   ├── >>> __init__.py <<<
+│   ├── >>> cli.py <<<
+│   ├── >>> collector.py <<<
+│   ├── >>> config.py <<<
+│   ├── >>> filter.py <<<
+│   ├── >>> main.py <<<
+│   ├── >>> parser.py <<<
+│   └── >>> tree.py <<<
+├── >>> requirements.txt <<<
+└── >>> setup.py <<<
+
+--- .\output_coleta.txt:END ---
+
+--- .\requirements.txt:START ---
+setuptools==80.3.1
+
+--- .\requirements.txt:END ---
+
+--- .\setup.py:START ---
+from setuptools import setup, find_packages
+
+setup(
+    name="project_collector",
+    version="0.1.0",
+    packages=find_packages(),
+    entry_points={
+        'console_scripts': [
+            'projcol=project_collector.cli:run',
+        ],
+    },
+    install_requires=[],
+    include_package_data=True,
+    package_data={
+        "project_collector": [
+            "configs/defaults/*.json",
+            "configs/requests/*.json"
+            ]
+    },
+)
+--- .\setup.py:END ---
+
+--- .\.vscode\settings.json:START ---
+{
+    // garanta que o linting esteja ligado
+    "python.linting.enabled": true,
+    // escolha O SEU linter instalado:
+    // se instalou pylint:
+    "python.linting.pylintEnabled": true,
+    // OU se preferir flake8:
+    // "python.linting.pylintEnabled": false,
+    // "python.linting.flake8Enabled": true,
+    // (opcional) rodar lint ao salvar
+    "editor.codeActionsOnSave": {
+        "source.fixAll": true
+    },
+    // certifica-se de usar o Pylance para análise estática
+    "python.languageServer": "Pylance",
+    "python.analysis.typeCheckingMode": "basic"
+}
+--- .\.vscode\settings.json:END ---
+
+--- .\configs\defaults\config_defaults.json:START ---
+{
+    "DEFAULT_IGNORED_DIRS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "DEFAULT_IGNORED_FILES": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    }
+}
+--- .\configs\defaults\config_defaults.json:END ---
+
+--- .\project_collector\cli.py:START ---
+# project_collector/cli.py
+from project_collector.parser import get_user_args
+from .main import main
+
+def run():
+    main()
+
+if __name__ == "__main__":
+    run()
+
+--- .\project_collector\cli.py:END ---
+
+--- .\project_collector\collector.py:START ---
+import os
+from pathlib import Path
+from typing import List, Tuple
+from .filter import Filter
+from .config import FilterConfig
+
+
+def collect_file_content(
+    directory: str,
+    cfg: FilterConfig,
+    only_tree: bool = False,
+    verbose: bool = False
+) -> Tuple[str, List[Path]]:
+    """
+    Percorre recursivamente `directory`, aplica filtros e:
+      - Se only_tree=True: apenas determina quais arquivos ficam na árvore, sem coletar conteúdo.
+      - Se only_tree=False: lê e concatena conteúdo dos arquivos incluídos.
+
+    Args:
+        directory: caminho da raiz a processar.
+        cfg: FilterConfig já populado.
+        only_tree: se True, ativa checagem de conteúdo para incluir na árvore.
+        verbose: se True, imprime logs de inclusão/ignoração.
+
+    Returns:
+        content: string com blocos "--- path:START ---...---:END ---" para cada arquivo (vazio se only_tree=True).
+        included: lista de Paths relativos (Path objects) dos arquivos incluídos.
+    """
+    root = Path(directory)
+    flt = Filter(cfg)
+    included: List[Path] = []
+    content_blocks: List[str] = []
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        current = Path(dirpath)
+        # 1) Filtra subpastas para não descer nas ignoradas
+        kept_dirs = []
+        for d in dirnames:
+            p = current / d
+            if flt.include_path(p, check_content=False):
+                kept_dirs.append(d)
+            elif verbose:
+                print(f"Ignoring directory: {p}")
+        dirnames[:] = kept_dirs
+
+        # 2) Processa arquivos
+        for fname in filenames:
+            p = current / fname
+            if flt.include_path(p, check_content=only_tree):
+                rel = p.relative_to(root)
+                included.append(rel)
+                if not only_tree:
+                    try:
+                        if verbose:
+                            print(f"Reading file: {p}")
+                        text = p.read_text(encoding='utf-8', errors='ignore')
+                        block = (
+                            f"\n--- {rel}:START ---\n"
+                            + text
+                            + f"\n--- {rel}:END ---\n"
+                        )
+                        content_blocks.append(block)
+                    except Exception as e:
+                        if verbose:
+                            print(f"Error reading file {p}: {e}")
+            elif verbose:
+                print(f"Ignoring file: {p}")
+
+    full_content = "".join(content_blocks)
+    return full_content, included
+
+--- .\project_collector\collector.py:END ---
+
+--- .\project_collector\config.py:START ---
+import json
+from pathlib import Path
+from typing import Any
+from .filter import PatternGroup, FilterConfig
+
+
+def load_config(
+    project: str,
+    no_defaults: bool = False
+) -> FilterConfig:
+    """
+    Carrega configurações para o perfil `project` a partir dos arquivos:
+      - configs/defaults/<project>.json  (padrões de ignore)
+      - configs/requests/<project>.json  (overrides e includes)
+
+    Cada JSON deve ter seções aninhadas como:
+      "DEFAULT_IGNORED_DIRS": {"GLOBS": [...], "REGEX": [...], "SUBSTRINGS": [...]}
+      "DEFAULT_IGNORED_FILES": {...}
+      "ADDITIONAL_IGNORED_DIRS": {...}
+      "ADDITIONAL_IGNORED_FILES": {...}
+      "INCLUDE_FOLDER_PATTERNS": {...}
+      "INCLUDE_FILE_PATTERNS": {...}
+      "INCLUDE_CONTENT_PATTERNS": {"REGEX": [...], "SUBSTRINGS": [...]}  # globs não usados
+
+    Args:
+        project: nome do perfil de configuração.
+        no_defaults: se True, pula leitura de defaults.
+    Returns:
+        FilterConfig contendo todos os PatternGroup carregados.
+    """
+    # Paths dos diretórios de configuração
+    base = Path(__file__).parent / 'configs'
+    def_file = base / 'defaults' / f'{project}.json'
+    req_file = base / 'requests' / f'{project}.json'
+
+    # Helper: parsing de PatternGroup
+    def parse_group(obj: Any, allow_globs: bool = True) -> PatternGroup:
+        if not isinstance(obj, dict):
+            # se não for dict, assume vazio
+            obj = {}
+        globs      = obj.get('GLOBS', []) if allow_globs else []
+        regex      = obj.get('REGEX', [])
+        substrings = obj.get('SUBSTRINGS', [])
+        return PatternGroup(globs=globs, regex=regex, substrings=substrings)
+
+    # 1) Defaults
+    if not no_defaults:
+        if not def_file.exists():
+            raise FileNotFoundError(f"Default config not found for project '{project}': {def_file}")
+        try:
+            raw_def = json.loads(def_file.read_text(encoding='utf-8'))
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in defaults file {def_file}: {e}")
+    else:
+        raw_def = {}
+
+    default_dirs_group  = parse_group(raw_def.get('DEFAULT_IGNORED_DIRS', {}))
+    default_files_group = parse_group(raw_def.get('DEFAULT_IGNORED_FILES', {}))
+
+    # 2) Requests
+    if not req_file.exists():
+        raise FileNotFoundError(f"Request config not found for project '{project}': {req_file}")
+    try:
+        raw_req = json.loads(req_file.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in request file {req_file}: {e}")
+
+    additional_dirs_group  = parse_group(raw_req.get('ADDITIONAL_IGNORED_DIRS', {}))
+    additional_files_group = parse_group(raw_req.get('ADDITIONAL_IGNORED_FILES', {}))
+    include_folder_group   = parse_group(raw_req.get('INCLUDE_FOLDER_PATTERNS', {}))
+    include_file_group     = parse_group(raw_req.get('INCLUDE_FILE_PATTERNS', {}))
+    include_content_group  = parse_group(raw_req.get('INCLUDE_CONTENT_PATTERNS', {}), allow_globs=False)
+
+    # 3) Monta e retorna FilterConfig
+    return FilterConfig(
+        default_ignored_dirs      = default_dirs_group,
+        default_ignored_files     = default_files_group,
+        additional_ignored_dirs   = additional_dirs_group,
+        additional_ignored_files  = additional_files_group,
+        include_folder            = include_folder_group,
+        include_file              = include_file_group,
+        include_content           = include_content_group,
+    )
+
+--- .\project_collector\config.py:END ---
+
+--- .\project_collector\filter.py:START ---
+import re
+import fnmatch
+from pathlib import Path
+from dataclasses import dataclass
+from typing import List, Pattern
+
+@dataclass
+class PatternGroup:
+    globs: List[str]
+    regex: List[str]
+    substrings: List[str]
+
+    @property
+    def regex_patterns(self) -> List[Pattern]:
+        return [re.compile(r) for r in self.regex]
+
+@dataclass
+class FilterConfig:
+    default_ignored_dirs: PatternGroup
+    default_ignored_files: PatternGroup
+    additional_ignored_dirs: PatternGroup
+    additional_ignored_files: PatternGroup
+    include_folder: PatternGroup
+    include_file: PatternGroup
+    include_content: PatternGroup
+
+class Filter:
+    """
+    Filtra arquivos e pastas com base num FilterConfig já validado.
+    """
+    def __init__(self, cfg: FilterConfig):
+        # Combina defaults + additional para exclusão de diretórios
+        self.exclude_dirs = PatternGroup(
+            globs=cfg.default_ignored_dirs.globs + cfg.additional_ignored_dirs.globs,
+            regex=cfg.default_ignored_dirs.regex + cfg.additional_ignored_dirs.regex,
+            substrings=cfg.default_ignored_dirs.substrings + cfg.additional_ignored_dirs.substrings
+        )
+        # Combina defaults + additional para exclusão de arquivos
+        self.exclude_files = PatternGroup(
+            globs=cfg.default_ignored_files.globs + cfg.additional_ignored_files.globs,
+            regex=cfg.default_ignored_files.regex + cfg.additional_ignored_files.regex,
+            substrings=cfg.default_ignored_files.substrings + cfg.additional_ignored_files.substrings
+        )
+        # Includes diretos para pastas e arquivos
+        self.include_folder = cfg.include_folder
+        self.include_file = cfg.include_file
+        # Conteúdo só usa regex e substrings, ignorando qualquer globs
+        self.include_content = PatternGroup(
+            globs=[],
+            regex=cfg.include_content.regex,
+            substrings=cfg.include_content.substrings
+        )
+
+    def _match(self, name: str, group: PatternGroup) -> bool:
+        # Glob patterns
+        for pat in group.globs:
+            if fnmatch.fnmatch(name, pat):
+                return True
+        # Regex patterns
+        for pat in group.regex_patterns:
+            if pat.search(name):
+                return True
+        # Substring patterns
+        for sub in group.substrings:
+            if sub in name:
+                return True
+        return False
+
+    def include_path(self, path: Path, *, check_content: bool = False) -> bool:
+        # 0) Exclui diretórios com base em segmentos do caminho
+        for seg in path.parts:
+            if self._match(seg, self.exclude_dirs):
+                return False
+        # 1) Exclui arquivos cujo nome bate em padrões de exclusão
+        if path.is_file() and self._match(path.name, self.exclude_files):
+            return False
+        # 2) Se há padrões de pasta para incluir, exige batida em algum segmento
+        if (self.include_folder.globs or self.include_folder.regex or self.include_folder.substrings):
+            if not any(self._match(seg, self.include_folder) for seg in path.parts):
+                return False
+        # 3) Se há padrões de arquivo para incluir, exige batida no nome
+        if path.is_file() and (self.include_file.globs or self.include_file.regex or self.include_file.substrings):
+            if not self._match(path.name, self.include_file):
+                return False
+        # 4) Checagem de conteúdo: só regex e substrings, sem glob
+        if check_content and (self.include_content.regex or self.include_content.substrings):
+            try:
+                text = path.read_text(encoding='utf-8', errors='ignore')
+            except Exception:
+                return False
+            # Regex content
+            if any(p.search(text) for p in self.include_content.regex_patterns):
+                return True
+            # Substrings content
+            if any(sub in text for sub in self.include_content.substrings):
+                return True
+            return False
+        return True
+
+--- .\project_collector\filter.py:END ---
+
+--- .\project_collector\main.py:START ---
+import sys
+from pathlib import Path
+from .parser import get_user_args
+from .config import load_config
+from .collector import collect_file_content
+from .tree import build_tree, print_tree
+
+# Local para armazenar config padrão (perfil)
+_DEFAULT_CONFIG_FILE = Path.home() / '.projcol_config'
+
+
+def _read_default_config() -> str:
+    if _DEFAULT_CONFIG_FILE.exists():
+        return _DEFAULT_CONFIG_FILE.read_text(encoding='utf-8').strip()
+    return ''
+
+
+def _write_default_config(name: str):
+    _DEFAULT_CONFIG_FILE.write_text(name, encoding='utf-8')
+
+
+def _clear_default_config():
+    if _DEFAULT_CONFIG_FILE.exists():
+        _DEFAULT_CONFIG_FILE.unlink()
+
+
+def main():
+    args = get_user_args()
+
+    # 1) Gerenciamento de config
+    if args.get_config:
+        current = _read_default_config()
+        if current:
+            print(f"Current default config: {current}")
+        else:
+            print("No default config set.")
+        sys.exit(0)
+    if args.clear_config:
+        _clear_default_config()
+        print("Default config cleared.")
+        sys.exit(0)
+    if args.set_config:
+        _write_default_config(args.set_config)
+        print(f"Default config set to: {args.set_config}")
+        sys.exit(0)
+
+    # 2) Verifica diretório informado
+    if not args.directory:
+        print("Error: directory not specified.", file=sys.stderr)
+        sys.exit(1)
+
+    project_dir = args.directory.resolve()
+    if not project_dir.exists():
+        print(f"Error: '{project_dir}' is not a valid directory.", file=sys.stderr)
+        sys.exit(1)
+
+    # 3) Determina config a usar: override (--use-config) ou default salvo
+    project = args.use_config or _read_default_config()
+    if not project:
+        print("Error: config not specified. Use --use-config or set default with --set-config.", file=sys.stderr)
+        sys.exit(1)
+
+    # 4) Carrega configuração
+    try:
+        cfg = load_config(project=project, no_defaults=args.no_defaults)
+    except Exception as e:
+        print(f"Error loading configuration for '{project}': {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # 5) Coleta conteúdo e lista de arquivos incluídos
+    content, included = collect_file_content(
+        directory=str(project_dir),
+        cfg=cfg,
+        only_tree=args.only_tree,
+        verbose=args.verbose
+    )
+
+    # 6) Monta árvore de diretórios
+    included_set = set(included)
+    tree = build_tree(project_dir, included_set)
+    tree_str = project_dir.name + "\n" + print_tree(tree)
+
+    # 7) Salva saída em pj_output.txt
+    output_path = Path('pj_output.txt')
+    try:
+        with output_path.open('w', encoding='utf-8') as out_file:
+            out_file.write(tree_str)
+            if not args.only_tree:
+                out_file.write("\n\n" + content)
+    except Exception as e:
+        print(f"Error writing output file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Coleta completa. Saída salva em '{output_path}'")
+
+
+def run():
+    main()
+
+
+if __name__ == '__main__':
+    run()
+
+--- .\project_collector\main.py:END ---
+
+--- .\project_collector\parser.py:START ---
+import argparse
+from pathlib import Path
+
+def get_user_args():
+    """
+    Configura o CLI para:
+        - Gerenciar config persistente (--config, --set-config, --clear-config, --show-config)
+        - Processar diretório opcional (posicional)
+        - Flags de execução (no_defaults, only_tree, verbose)
+
+    Retorna:
+        Namespace com atributos:
+            directory: Path | None
+            config: str | None
+            set_config: str | None
+            clear_config: bool
+            show_config: bool
+            no_defaults: bool
+            only_tree: bool
+            verbose: bool
+    """
+    parser = argparse.ArgumentParser(
+        prog='projcol',
+        description='Project Collector: coleta conteúdo e exibe árvore de diretórios'
+    )
+    # Diretório alvo: opcional para comandos de gerenciamento
+    parser.add_argument(
+        'directory',
+        nargs='?',  # opcional
+        type=lambda p: Path(p).expanduser(),
+        help='Diretório raiz para processar (use "." para cwd ou caminho relativo)'
+    )
+
+    # Grupo para gerenciar config persistente
+    group = parser.add_mutually_exclusive_group()
+    # override temporário para esta execução
+    group.add_argument(
+        '--use-config', '--ucfg',
+        dest='use_config',
+        help='Config temporário para esta execução (sobrescreve o padrão)'
+    )
+    # define config padrão
+    group.add_argument(
+        '--set-config', '--scfg',
+        dest='set_config',
+        metavar='CONFIG',
+        help='Define CONFIG como padrão para futuras execuções'
+    )
+    # limpa config padrão
+    group.add_argument(
+        '--clear-config', '--ccfg',
+        dest='clear_config',
+        action='store_true',
+        help='Limpa o config padrão, voltando ao estado sem padrão'
+    )
+    # mostra config padrão
+    group.add_argument(
+        '--get-config', '--gcfg',
+        dest='get_config',
+        action='store_true',
+        help='Mostra o config padrão atualmente definido'
+    )
+
+    # Flags de execução do collector
+    parser.add_argument(
+        '--no-defaults',
+        action='store_true',
+        help='Ignorar defaults ao carregar config'
+    )
+    parser.add_argument(
+        '--only-tree',
+        action='store_true',
+        help='Gerar apenas árvore sem coletar conteúdo'
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Modo verboso para debug'
+    )
+
+    return parser.parse_args()
+
+--- .\project_collector\parser.py:END ---
+
+--- .\project_collector\tree.py:START ---
+from pathlib import Path
+from typing import Dict, Any, Set
+
+
+def build_tree(root: Path, included_set: Set[Path]) -> Dict[str, Any]:
+    """
+    Constrói um dicionário aninhado representando a árvore de diretórios,
+    marcando arquivos e pastas ignorados.
+
+    Args:
+        root: Path absoluto para o diretório raiz.
+        included_set: conjunto de Paths relativos ao root dos arquivos incluídos.
+
+    Retorna:
+        Um dict onde chaves são nomes de arquivos/pastas (com sufixos)
+        e valores são sub-dicts (para pastas) ou None (para arquivos).
+    """
+    def _build(current_dir: Path) -> Dict[str, Any]:
+        tree: Dict[str, Any] = {}
+        # Ordena por nome para saída consistente
+        for item in sorted(current_dir.iterdir(), key=lambda p: p.name):
+            rel = item.relative_to(root)
+            if item.is_dir():
+                # Verifica se algum arquivo incluído vive abaixo desta pasta
+                has_child = False
+                for inc in included_set:
+                    child_path = root / inc
+                    try:
+                        child_path.relative_to(item)
+                        has_child = True
+                        break
+                    except ValueError:
+                        continue
+                if not has_child:
+                    # Nenhum filho incluído: marca como ignorado e não expande
+                    tree[f"{item.name} (ignored)"] = {}
+                else:
+                    # Há filhos incluídos: expande recursivamente
+                    tree[item.name] = _build(item)
+            else:
+                # Arquivo: destaca se incluído, senão ignora
+                if rel in included_set:
+                    tree[f">>> {item.name} <<<"] = None
+                else:
+                    tree[f"{item.name} (ignored)"] = None
+        return tree
+
+    return _build(root)
+
+
+def print_tree(tree: Dict[str, Any], prefix: str = "") -> str:
+    """
+    Gera uma representação em texto ASCII da árvore construída.
+
+    Args:
+        tree: dict gerado por build_tree
+        prefix: prefixo de indentação para chamadas recursivas
+
+    Retorna:
+        Uma string com linhas contendo ├── e └── para conexões.
+    """
+    result = ""
+    items = list(tree.items())
+    for idx, (name, subtree) in enumerate(items):
+        connector = "├── " if idx < len(items) - 1 else "└── "
+        result += prefix + connector + name + "\n"
+        if subtree:
+            extension = "│   " if idx < len(items) - 1 else "    "
+            result += print_tree(subtree, prefix + extension)
+    return result
+
+--- .\project_collector\tree.py:END ---
+
+--- .\project_collector\__init__.py:START ---
+
+--- .\project_collector\__init__.py:END ---
+
+
+--- Directory Tree ---
+
+Project_Collector
+├── .vscode
+│   └── >>> settings.json <<<
+├── configs
+│   ├── defaults
+│   │   └── >>> config_defaults.json <<<
+│   └── requests (ignored)
+├── >>> output_coleta.txt <<<
+├── project_collector
+│   ├── >>> __init__.py <<<
+│   ├── >>> cli.py <<<
+│   ├── >>> collector.py <<<
+│   ├── >>> config.py <<<
+│   ├── >>> filter.py <<<
+│   ├── >>> main.py <<<
+│   ├── >>> parser.py <<<
+│   └── >>> tree.py <<<
+├── >>> requirements.txt <<<
+└── >>> setup.py <<<
+
+--- .\output_coleta.txt:END ---
+
+--- .\requirements.txt:START ---
+setuptools==80.3.1
+
+--- .\requirements.txt:END ---
+
+--- .\setup.py:START ---
+from setuptools import setup, find_packages
+
+setup(
+    name="project_collector",
+    version="0.1.0",
+    packages=find_packages(),
+    entry_points={
+        'console_scripts': [
+            'projcol=project_collector.cli:run',
+        ],
+    },
+    install_requires=[],
+    include_package_data=True,
+    package_data={
+        "project_collector": [
+            "configs/defaults/*.json",
+            "configs/requests/*.json"
+            ]
+    },
+)
+--- .\setup.py:END ---
+
+--- .\.vscode\settings.json:START ---
+{
+    // garanta que o linting esteja ligado
+    "python.linting.enabled": true,
+    // escolha O SEU linter instalado:
+    // se instalou pylint:
+    "python.linting.pylintEnabled": true,
+    // OU se preferir flake8:
+    // "python.linting.pylintEnabled": false,
+    // "python.linting.flake8Enabled": true,
+    // (opcional) rodar lint ao salvar
+    "editor.codeActionsOnSave": {
+        "source.fixAll": true
+    },
+    // certifica-se de usar o Pylance para análise estática
+    "python.languageServer": "Pylance",
+    "python.analysis.typeCheckingMode": "basic"
+}
+--- .\.vscode\settings.json:END ---
+
+--- .\configs\defaults\config_defaults.json:START ---
+{
+    "DEFAULT_IGNORED_DIRS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "DEFAULT_IGNORED_FILES": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    }
+}
+--- .\configs\defaults\config_defaults.json:END ---
+
+--- .\configs\requests\config.json:START ---
+{
+    "ADDITIONAL_IGNORED_DIRS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "ADDITIONAL_IGNORED_FILES": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "INCLUDE_FOLDER_PATTERNS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "INCLUDE_FILE_PATTERNS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "INCLUDE_CONTENT_PATTERNS": {
+        "REGEX": [],
+        "SUBSTRINGS": []
+    }
+}
+--- .\configs\requests\config.json:END ---
+
+--- .\project_collector\cli.py:START ---
+# project_collector/cli.py
+from project_collector.parser import get_user_args
+from .main import main
+
+def run():
+    main()
+
+if __name__ == "__main__":
+    run()
+
+--- .\project_collector\cli.py:END ---
+
+--- .\project_collector\collector.py:START ---
+import os
+from pathlib import Path
+from typing import List, Tuple
+from .filter import Filter
+from .config import FilterConfig
+
+
+def collect_file_content(
+    directory: str,
+    cfg: FilterConfig,
+    only_tree: bool = False,
+    verbose: bool = False
+) -> Tuple[str, List[Path]]:
+    """
+    Percorre recursivamente `directory`, aplica filtros e:
+      - Se only_tree=True: apenas determina quais arquivos ficam na árvore, sem coletar conteúdo.
+      - Se only_tree=False: lê e concatena conteúdo dos arquivos incluídos.
+
+    Args:
+        directory: caminho da raiz a processar.
+        cfg: FilterConfig já populado.
+        only_tree: se True, ativa checagem de conteúdo para incluir na árvore.
+        verbose: se True, imprime logs de inclusão/ignoração.
+
+    Returns:
+        content: string com blocos "--- path:START ---...---:END ---" para cada arquivo (vazio se only_tree=True).
+        included: lista de Paths relativos (Path objects) dos arquivos incluídos.
+    """
+    root = Path(directory)
+    flt = Filter(cfg)
+    included: List[Path] = []
+    content_blocks: List[str] = []
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        current = Path(dirpath)
+        # 1) Filtra subpastas para não descer nas ignoradas
+        kept_dirs = []
+        for d in dirnames:
+            p = current / d
+            if flt.include_path(p, check_content=False):
+                kept_dirs.append(d)
+            elif verbose:
+                print(f"Ignoring directory: {p}")
+        dirnames[:] = kept_dirs
+
+        # 2) Processa arquivos
+        for fname in filenames:
+            p = current / fname
+            if flt.include_path(p, check_content=only_tree):
+                rel = p.relative_to(root)
+                included.append(rel)
+                if not only_tree:
+                    try:
+                        if verbose:
+                            print(f"Reading file: {p}")
+                        text = p.read_text(encoding='utf-8', errors='ignore')
+                        block = (
+                            f"\n--- {rel}:START ---\n"
+                            + text
+                            + f"\n--- {rel}:END ---\n"
+                        )
+                        content_blocks.append(block)
+                    except Exception as e:
+                        if verbose:
+                            print(f"Error reading file {p}: {e}")
+            elif verbose:
+                print(f"Ignoring file: {p}")
+
+    full_content = "".join(content_blocks)
+    return full_content, included
+
+--- .\project_collector\collector.py:END ---
+
+--- .\project_collector\config.py:START ---
+import json
+from pathlib import Path
+from typing import Any
+from .filter import PatternGroup, FilterConfig
+
+
+def load_config(
+    project: str,
+    no_defaults: bool = False
+) -> FilterConfig:
+    """
+    Carrega configurações para o perfil `project` a partir dos arquivos:
+      - configs/defaults/<project>.json  (padrões de ignore)
+      - configs/requests/<project>.json  (overrides e includes)
+
+    Cada JSON deve ter seções aninhadas como:
+      "DEFAULT_IGNORED_DIRS": {"GLOBS": [...], "REGEX": [...], "SUBSTRINGS": [...]}
+      "DEFAULT_IGNORED_FILES": {...}
+      "ADDITIONAL_IGNORED_DIRS": {...}
+      "ADDITIONAL_IGNORED_FILES": {...}
+      "INCLUDE_FOLDER_PATTERNS": {...}
+      "INCLUDE_FILE_PATTERNS": {...}
+      "INCLUDE_CONTENT_PATTERNS": {"REGEX": [...], "SUBSTRINGS": [...]}  # globs não usados
+
+    Args:
+        project: nome do perfil de configuração.
+        no_defaults: se True, pula leitura de defaults.
+    Returns:
+        FilterConfig contendo todos os PatternGroup carregados.
+    """
+    # Paths dos diretórios de configuração
+    base = Path(__file__).parent / 'configs'
+    def_file = base / 'defaults' / f'{project}.json'
+    req_file = base / 'requests' / f'{project}.json'
+
+    # Helper: parsing de PatternGroup
+    def parse_group(obj: Any, allow_globs: bool = True) -> PatternGroup:
+        if not isinstance(obj, dict):
+            # se não for dict, assume vazio
+            obj = {}
+        globs      = obj.get('GLOBS', []) if allow_globs else []
+        regex      = obj.get('REGEX', [])
+        substrings = obj.get('SUBSTRINGS', [])
+        return PatternGroup(globs=globs, regex=regex, substrings=substrings)
+
+    # 1) Defaults
+    if not no_defaults:
+        if not def_file.exists():
+            raise FileNotFoundError(f"Default config not found for project '{project}': {def_file}")
+        try:
+            raw_def = json.loads(def_file.read_text(encoding='utf-8'))
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in defaults file {def_file}: {e}")
+    else:
+        raw_def = {}
+
+    default_dirs_group  = parse_group(raw_def.get('DEFAULT_IGNORED_DIRS', {}))
+    default_files_group = parse_group(raw_def.get('DEFAULT_IGNORED_FILES', {}))
+
+    # 2) Requests
+    if not req_file.exists():
+        raise FileNotFoundError(f"Request config not found for project '{project}': {req_file}")
+    try:
+        raw_req = json.loads(req_file.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in request file {req_file}: {e}")
+
+    additional_dirs_group  = parse_group(raw_req.get('ADDITIONAL_IGNORED_DIRS', {}))
+    additional_files_group = parse_group(raw_req.get('ADDITIONAL_IGNORED_FILES', {}))
+    include_folder_group   = parse_group(raw_req.get('INCLUDE_FOLDER_PATTERNS', {}))
+    include_file_group     = parse_group(raw_req.get('INCLUDE_FILE_PATTERNS', {}))
+    include_content_group  = parse_group(raw_req.get('INCLUDE_CONTENT_PATTERNS', {}), allow_globs=False)
+
+    # 3) Monta e retorna FilterConfig
+    return FilterConfig(
+        default_ignored_dirs      = default_dirs_group,
+        default_ignored_files     = default_files_group,
+        additional_ignored_dirs   = additional_dirs_group,
+        additional_ignored_files  = additional_files_group,
+        include_folder            = include_folder_group,
+        include_file              = include_file_group,
+        include_content           = include_content_group,
+    )
+
+--- .\project_collector\config.py:END ---
+
+--- .\project_collector\filter.py:START ---
+import re
+import fnmatch
+from pathlib import Path
+from dataclasses import dataclass
+from typing import List, Pattern
+
+@dataclass
+class PatternGroup:
+    globs: List[str]
+    regex: List[str]
+    substrings: List[str]
+
+    @property
+    def regex_patterns(self) -> List[Pattern]:
+        return [re.compile(r) for r in self.regex]
+
+@dataclass
+class FilterConfig:
+    default_ignored_dirs: PatternGroup
+    default_ignored_files: PatternGroup
+    additional_ignored_dirs: PatternGroup
+    additional_ignored_files: PatternGroup
+    include_folder: PatternGroup
+    include_file: PatternGroup
+    include_content: PatternGroup
+
+class Filter:
+    """
+    Filtra arquivos e pastas com base num FilterConfig já validado.
+    """
+    def __init__(self, cfg: FilterConfig):
+        # Combina defaults + additional para exclusão de diretórios
+        self.exclude_dirs = PatternGroup(
+            globs=cfg.default_ignored_dirs.globs + cfg.additional_ignored_dirs.globs,
+            regex=cfg.default_ignored_dirs.regex + cfg.additional_ignored_dirs.regex,
+            substrings=cfg.default_ignored_dirs.substrings + cfg.additional_ignored_dirs.substrings
+        )
+        # Combina defaults + additional para exclusão de arquivos
+        self.exclude_files = PatternGroup(
+            globs=cfg.default_ignored_files.globs + cfg.additional_ignored_files.globs,
+            regex=cfg.default_ignored_files.regex + cfg.additional_ignored_files.regex,
+            substrings=cfg.default_ignored_files.substrings + cfg.additional_ignored_files.substrings
+        )
+        # Includes diretos para pastas e arquivos
+        self.include_folder = cfg.include_folder
+        self.include_file = cfg.include_file
+        # Conteúdo só usa regex e substrings, ignorando qualquer globs
+        self.include_content = PatternGroup(
+            globs=[],
+            regex=cfg.include_content.regex,
+            substrings=cfg.include_content.substrings
+        )
+
+    def _match(self, name: str, group: PatternGroup) -> bool:
+        # Glob patterns
+        for pat in group.globs:
+            if fnmatch.fnmatch(name, pat):
+                return True
+        # Regex patterns
+        for pat in group.regex_patterns:
+            if pat.search(name):
+                return True
+        # Substring patterns
+        for sub in group.substrings:
+            if sub in name:
+                return True
+        return False
+
+    def include_path(self, path: Path, *, check_content: bool = False) -> bool:
+        # 0) Exclui diretórios com base em segmentos do caminho
+        for seg in path.parts:
+            if self._match(seg, self.exclude_dirs):
+                return False
+        # 1) Exclui arquivos cujo nome bate em padrões de exclusão
+        if path.is_file() and self._match(path.name, self.exclude_files):
+            return False
+        # 2) Se há padrões de pasta para incluir, exige batida em algum segmento
+        if (self.include_folder.globs or self.include_folder.regex or self.include_folder.substrings):
+            if not any(self._match(seg, self.include_folder) for seg in path.parts):
+                return False
+        # 3) Se há padrões de arquivo para incluir, exige batida no nome
+        if path.is_file() and (self.include_file.globs or self.include_file.regex or self.include_file.substrings):
+            if not self._match(path.name, self.include_file):
+                return False
+        # 4) Checagem de conteúdo: só regex e substrings, sem glob
+        if check_content and (self.include_content.regex or self.include_content.substrings):
+            try:
+                text = path.read_text(encoding='utf-8', errors='ignore')
+            except Exception:
+                return False
+            # Regex content
+            if any(p.search(text) for p in self.include_content.regex_patterns):
+                return True
+            # Substrings content
+            if any(sub in text for sub in self.include_content.substrings):
+                return True
+            return False
+        return True
+
+--- .\project_collector\filter.py:END ---
+
+--- .\project_collector\main.py:START ---
+import sys
+from pathlib import Path
+from .parser import get_user_args
+from .config import load_config
+from .collector import collect_file_content
+from .tree import build_tree, print_tree
+
+# Local para armazenar config padrão (perfil)
+_DEFAULT_CONFIG_FILE = Path.home() / '.projcol_config'
+
+
+def _read_default_config() -> str:
+    if _DEFAULT_CONFIG_FILE.exists():
+        return _DEFAULT_CONFIG_FILE.read_text(encoding='utf-8').strip()
+    return ''
+
+
+def _write_default_config(name: str):
+    _DEFAULT_CONFIG_FILE.write_text(name, encoding='utf-8')
+
+
+def _clear_default_config():
+    if _DEFAULT_CONFIG_FILE.exists():
+        _DEFAULT_CONFIG_FILE.unlink()
+
+
+def main():
+    args = get_user_args()
+
+    # 1) Gerenciamento de config
+    if args.get_config:
+        current = _read_default_config()
+        if current:
+            print(f"Current default config: {current}")
+        else:
+            print("No default config set.")
+        sys.exit(0)
+    if args.clear_config:
+        _clear_default_config()
+        print("Default config cleared.")
+        sys.exit(0)
+    if args.set_config:
+        _write_default_config(args.set_config)
+        print(f"Default config set to: {args.set_config}")
+        sys.exit(0)
+
+    # 2) Verifica diretório informado
+    if not args.directory:
+        print("Error: directory not specified.", file=sys.stderr)
+        sys.exit(1)
+
+    project_dir = args.directory.resolve()
+    if not project_dir.exists():
+        print(f"Error: '{project_dir}' is not a valid directory.", file=sys.stderr)
+        sys.exit(1)
+
+    # 3) Determina config a usar: override (--use-config) ou default salvo
+    project = args.use_config or _read_default_config()
+    if not project:
+        print("Error: config not specified. Use --use-config or set default with --set-config.", file=sys.stderr)
+        sys.exit(1)
+
+    # 4) Carrega configuração
+    try:
+        cfg = load_config(project=project, no_defaults=args.no_defaults)
+    except Exception as e:
+        print(f"Error loading configuration for '{project}': {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # 5) Coleta conteúdo e lista de arquivos incluídos
+    content, included = collect_file_content(
+        directory=str(project_dir),
+        cfg=cfg,
+        only_tree=args.only_tree,
+        verbose=args.verbose
+    )
+
+    # 6) Monta árvore de diretórios
+    included_set = set(included)
+    tree = build_tree(project_dir, included_set)
+    tree_str = project_dir.name + "\n" + print_tree(tree)
+
+    # 7) Salva saída em pj_output.txt
+    output_path = Path('pj_output.txt')
+    try:
+        with output_path.open('w', encoding='utf-8') as out_file:
+            out_file.write(tree_str)
+            if not args.only_tree:
+                out_file.write("\n\n" + content)
+    except Exception as e:
+        print(f"Error writing output file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Coleta completa. Saída salva em '{output_path}'")
+
+
+def run():
+    main()
+
+
+if __name__ == '__main__':
+    run()
+
+--- .\project_collector\main.py:END ---
+
+--- .\project_collector\parser.py:START ---
+import argparse
+from pathlib import Path
+
+def get_user_args():
+    """
+    Configura o CLI para:
+        - Gerenciar config persistente (--config, --set-config, --clear-config, --show-config)
+        - Processar diretório opcional (posicional)
+        - Flags de execução (no_defaults, only_tree, verbose)
+
+    Retorna:
+        Namespace com atributos:
+            directory: Path | None
+            config: str | None
+            set_config: str | None
+            clear_config: bool
+            show_config: bool
+            no_defaults: bool
+            only_tree: bool
+            verbose: bool
+    """
+    parser = argparse.ArgumentParser(
+        prog='projcol',
+        description='Project Collector: coleta conteúdo e exibe árvore de diretórios'
+    )
+    # Diretório alvo: opcional para comandos de gerenciamento
+    parser.add_argument(
+        'directory',
+        nargs='?',  # opcional
+        type=lambda p: Path(p).expanduser(),
+        help='Diretório raiz para processar (use "." para cwd ou caminho relativo)'
+    )
+
+    # Grupo para gerenciar config persistente
+    group = parser.add_mutually_exclusive_group()
+    # override temporário para esta execução
+    group.add_argument(
+        '--use-config', '--ucfg',
+        dest='use_config',
+        help='Config temporário para esta execução (sobrescreve o padrão)'
+    )
+    # define config padrão
+    group.add_argument(
+        '--set-config', '--scfg',
+        dest='set_config',
+        metavar='CONFIG',
+        help='Define CONFIG como padrão para futuras execuções'
+    )
+    # limpa config padrão
+    group.add_argument(
+        '--clear-config', '--ccfg',
+        dest='clear_config',
+        action='store_true',
+        help='Limpa o config padrão, voltando ao estado sem padrão'
+    )
+    # mostra config padrão
+    group.add_argument(
+        '--get-config', '--gcfg',
+        dest='get_config',
+        action='store_true',
+        help='Mostra o config padrão atualmente definido'
+    )
+
+    # Flags de execução do collector
+    parser.add_argument(
+        '--no-defaults',
+        action='store_true',
+        help='Ignorar defaults ao carregar config'
+    )
+    parser.add_argument(
+        '--only-tree',
+        action='store_true',
+        help='Gerar apenas árvore sem coletar conteúdo'
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Modo verboso para debug'
+    )
+
+    return parser.parse_args()
+
+--- .\project_collector\parser.py:END ---
+
+--- .\project_collector\tree.py:START ---
+from pathlib import Path
+from typing import Dict, Any, Set
+
+
+def build_tree(root: Path, included_set: Set[Path]) -> Dict[str, Any]:
+    """
+    Constrói um dicionário aninhado representando a árvore de diretórios,
+    marcando arquivos e pastas ignorados.
+
+    Args:
+        root: Path absoluto para o diretório raiz.
+        included_set: conjunto de Paths relativos ao root dos arquivos incluídos.
+
+    Retorna:
+        Um dict onde chaves são nomes de arquivos/pastas (com sufixos)
+        e valores são sub-dicts (para pastas) ou None (para arquivos).
+    """
+    def _build(current_dir: Path) -> Dict[str, Any]:
+        tree: Dict[str, Any] = {}
+        # Ordena por nome para saída consistente
+        for item in sorted(current_dir.iterdir(), key=lambda p: p.name):
+            rel = item.relative_to(root)
+            if item.is_dir():
+                # Verifica se algum arquivo incluído vive abaixo desta pasta
+                has_child = False
+                for inc in included_set:
+                    child_path = root / inc
+                    try:
+                        child_path.relative_to(item)
+                        has_child = True
+                        break
+                    except ValueError:
+                        continue
+                if not has_child:
+                    # Nenhum filho incluído: marca como ignorado e não expande
+                    tree[f"{item.name} (ignored)"] = {}
+                else:
+                    # Há filhos incluídos: expande recursivamente
+                    tree[item.name] = _build(item)
+            else:
+                # Arquivo: destaca se incluído, senão ignora
+                if rel in included_set:
+                    tree[f">>> {item.name} <<<"] = None
+                else:
+                    tree[f"{item.name} (ignored)"] = None
+        return tree
+
+    return _build(root)
+
+
+def print_tree(tree: Dict[str, Any], prefix: str = "") -> str:
+    """
+    Gera uma representação em texto ASCII da árvore construída.
+
+    Args:
+        tree: dict gerado por build_tree
+        prefix: prefixo de indentação para chamadas recursivas
+
+    Retorna:
+        Uma string com linhas contendo ├── e └── para conexões.
+    """
+    result = ""
+    items = list(tree.items())
+    for idx, (name, subtree) in enumerate(items):
+        connector = "├── " if idx < len(items) - 1 else "└── "
+        result += prefix + connector + name + "\n"
+        if subtree:
+            extension = "│   " if idx < len(items) - 1 else "    "
+            result += print_tree(subtree, prefix + extension)
+    return result
+
+--- .\project_collector\tree.py:END ---
+
+--- .\project_collector\__init__.py:START ---
+
+--- .\project_collector\__init__.py:END ---
+
+
+--- Directory Tree ---
+
+Project_Collector
+├── .vscode
+│   └── >>> settings.json <<<
+├── configs
+│   ├── defaults
+│   │   └── >>> config_defaults.json <<<
+│   └── requests
+│       └── >>> config.json <<<
 ├── >>> output_coleta.txt <<<
 ├── project_collector
 │   ├── >>> __init__.py <<<

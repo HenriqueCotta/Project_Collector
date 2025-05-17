@@ -1,0 +1,17 @@
+setup.py
+configs/__init__.py
+configs/defaults/__init__.py
+configs/requests/__init__.py
+project_collector/__init__.py
+project_collector/cli.py
+project_collector/collector.py
+project_collector/config.py
+project_collector/filter.py
+project_collector/main.py
+project_collector/parser.py
+project_collector/tree.py
+project_collector.egg-info/PKG-INFO
+project_collector.egg-info/SOURCES.txt
+project_collector.egg-info/dependency_links.txt
+project_collector.egg-info/entry_points.txt
+project_collector.egg-info/top_level.txt

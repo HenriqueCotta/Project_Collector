@@ -8,10 +8,7 @@
     "__pycache__",
     "context_scripts"
   ],
-  "DEFAULT_IGNORED_FILES": [
-    "config_default.json",
-    "config.json"
-  ],
+  "DEFAULT_IGNORED_FILES": [],
   "ADDITIONAL_IGNORED_DIRS": [],
   "ADDITIONAL_IGNORED_FILES": [],
   "INCLUDE_FOLDER_PATTERNS": [],
