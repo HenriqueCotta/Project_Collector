@@ -1,0 +1,28 @@
+{
+    "ADDITIONAL_IGNORED_DIRS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "ADDITIONAL_IGNORED_FILES": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "INCLUDE_FOLDER_PATTERNS": {
+        "GLOBS": [],
+        "REGEX": [
+            "models"
+        ],
+        "SUBSTRINGS": []
+    },
+    "INCLUDE_FILE_PATTERNS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "INCLUDE_CONTENT_PATTERNS": {
+        "REGEX": [],
+        "SUBSTRINGS": []
+    }
+}

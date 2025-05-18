@@ -1,8 +1,14 @@
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 from .filter import PatternGroup, FilterConfig
 
+# Base dos JSONs no pacote
+_BASE = Path(__file__).parent.parent  / 'configs'
+_DEFAULTS_DIR = _BASE / 'defaults'
+_REQUESTS_DIR = _BASE / 'requests'
+# Arquivo do default salvo pelo usuário
+_DEFAULT_CONFIG_FILE = Path.home() / '.projcol_config'
 
 def load_config(
     project: str,
@@ -29,7 +35,7 @@ def load_config(
         FilterConfig contendo todos os PatternGroup carregados.
     """
     # Paths dos diretórios de configuração
-    base = Path(__file__).parent / 'configs'
+    base = Path(__file__).parent.parent / 'configs'
     def_file = base / 'defaults' / f'{project}.json'
     req_file = base / 'requests' / f'{project}.json'
 
@@ -81,3 +87,48 @@ def load_config(
         include_file              = include_file_group,
         include_content           = include_content_group,
     )
+    
+def read_default_config() -> str:
+    if _DEFAULT_CONFIG_FILE.exists():
+        return _DEFAULT_CONFIG_FILE.read_text(encoding='utf-8').strip()
+    return "No default config set."
+
+
+def write_default_config(name: str):
+    _DEFAULT_CONFIG_FILE.write_text(name, encoding='utf-8')
+
+
+def clear_default_config():
+    if _DEFAULT_CONFIG_FILE.exists():
+        _DEFAULT_CONFIG_FILE.unlink()
+
+
+def list_configs() -> List[str]:
+    """Retorna lista de todos os configs disponíveis (defaults ∪ requests)."""
+    defs = {p.stem for p in _DEFAULTS_DIR.glob('*.json')}
+    reqs = {p.stem for p in _REQUESTS_DIR.glob('*.json')}
+    return sorted(defs.union(reqs))
+
+
+def init_config(name: str):
+    """Cria skeletons em defaults/ e requests/ para o config `name`."""
+    skeleton_def = {
+        "DEFAULT_IGNORED_DIRS":  {"GLOBS": [], "REGEX": [], "SUBSTRINGS": []},
+        "DEFAULT_IGNORED_FILES": {"GLOBS": [], "REGEX": [], "SUBSTRINGS": []}
+    }
+    skeleton_req = {
+        "ADDITIONAL_IGNORED_DIRS":  {"GLOBS": [], "REGEX": [], "SUBSTRINGS": []},
+        "ADDITIONAL_IGNORED_FILES": {"GLOBS": [], "REGEX": [], "SUBSTRINGS": []},
+        "INCLUDE_FOLDER_PATTERNS":  {"GLOBS": [], "REGEX": [], "SUBSTRINGS": []},
+        "INCLUDE_FILE_PATTERNS":    {"GLOBS": [], "REGEX": [], "SUBSTRINGS": []},
+        "INCLUDE_CONTENT_PATTERNS": {"REGEX": [], "SUBSTRINGS": []}
+    }
+    def_file = _DEFAULTS_DIR / f"{name}.json"
+    req_file = _REQUESTS_DIR / f"{name}.json"
+
+    if not def_file.exists():
+        def_file.parent.mkdir(parents=True, exist_ok=True)
+        def_file.write_text(json.dumps(skeleton_def, indent=4), encoding='utf-8')
+    if not req_file.exists():
+        req_file.parent.mkdir(parents=True, exist_ok=True)
+        req_file.write_text(json.dumps(skeleton_req, indent=4), encoding='utf-8')

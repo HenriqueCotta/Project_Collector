@@ -37,6 +37,7 @@ def get_user_args():
     group.add_argument(
         '--use-config', '--ucfg',
         dest='use_config',
+        metavar='CONFIG',
         help='Config temporário para esta execução (sobrescreve o padrão)'
     )
     # define config padrão
@@ -49,16 +50,22 @@ def get_user_args():
     # limpa config padrão
     group.add_argument(
         '--clear-config', '--ccfg',
-        dest='clear_config',
         action='store_true',
+        dest='clear_config',
         help='Limpa o config padrão, voltando ao estado sem padrão'
     )
     # mostra config padrão
     group.add_argument(
         '--get-config', '--gcfg',
-        dest='get_config',
         action='store_true',
+        dest='get_config',
         help='Mostra o config padrão atualmente definido'
+    )
+    group.add_argument(
+        '--list-configs', '-lcfg',
+        action='store_true',
+        dest='list_configs',
+        help='Lista todos os configs disponíveis'
     )
 
     # Flags de execução do collector
