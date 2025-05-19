@@ -8,7 +8,9 @@
     "__pycache__",
     "context_scripts"
   ],
-  "DEFAULT_IGNORED_FILES": [],
+  "DEFAULT_IGNORED_FILES": [
+    "output_coleta.txt"
+  ],
   "ADDITIONAL_IGNORED_DIRS": [],
   "ADDITIONAL_IGNORED_FILES": [],
   "INCLUDE_FOLDER_PATTERNS": [],

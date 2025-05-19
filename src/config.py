@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import sys
 from typing import Any, List
 from .filter import PatternGroup, FilterConfig
 
@@ -132,3 +133,14 @@ def init_config(name: str):
     if not req_file.exists():
         req_file.parent.mkdir(parents=True, exist_ok=True)
         req_file.write_text(json.dumps(skeleton_req, indent=4), encoding='utf-8')
+
+
+def choose_config(args) -> str:
+    """Retorna o config a usar: override ou o default salvo; ou sai com erro."""
+    if args.use_config:
+        return args.use_config
+    default = read_default_config()
+    if default:
+        return default
+    print("Error: config not specified. Use --use-config or --set-config.", file=sys.stderr)
+    sys.exit(1)

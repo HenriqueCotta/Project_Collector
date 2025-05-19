@@ -12,7 +12,6 @@ Project_Collector
 │   └── requests
 │       ├── >>> Amazilium-Foundation.json <<<
 │       └── >>> __init__.py <<<
-├── >>> output_coleta.txt <<<
 ├── project_collector.egg-info
 │   ├── >>> PKG-INFO <<<
 │   ├── >>> SOURCES.txt <<<

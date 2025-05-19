@@ -1,2 +1,2 @@
 [console_scripts]
-projcol = project_collector.cli:run
+projcol = src.cli:run

@@ -1,48 +1,18 @@
 import sys
-import json
 from pathlib import Path
 
 from .parser import get_user_args
-from .config import load_config, manage_config_commands
+from .config import (
+    choose_config,
+    load_config,
+    read_default_config,
+    write_default_config,
+    clear_default_config,
+    list_configs,
+    init_config,
+)
 from .collector import collect_file_content
 from .tree import build_tree, print_tree
-
-# Onde vivem os JSON de configs no pacote
-_CONFIGS_BASE      = Path(__file__).parent / 'configs'
-_DEFAULTS_DIR     = _CONFIGS_BASE / 'defaults'
-_REQUESTS_DIR     = _CONFIGS_BASE / 'requests'
-# Arquivo que guarda o config padrão do usuário
-_DEFAULT_CONFIG_FILE = Path.home() / '.projcol_config'
-
-
-def read_default_config() -> str:
-    if _DEFAULT_CONFIG_FILE.exists():
-        return _DEFAULT_CONFIG_FILE.read_text(encoding='utf-8').strip()
-    return ""
-
-
-def write_default_config(name: str):
-    _DEFAULT_CONFIG_FILE.write_text(name, encoding='utf-8')
-
-
-def clear_default_config():
-    if _DEFAULT_CONFIG_FILE.exists():
-        _DEFAULT_CONFIG_FILE.unlink()
-
-
-def list_configs():
-    """Mostra todos os configs disponíveis, marcando o atual."""
-    defs = {p.stem for p in _DEFAULTS_DIR.glob('*.json')}
-    reqs = {p.stem for p in _REQUESTS_DIR.glob('*.json')}
-    all_cfgs = sorted(defs.union(reqs))
-    current = read_default_config()
-    print("Available configs:")
-    for cfg in all_cfgs:
-        mark = "*" if cfg == current else " "
-        print(f"{mark} {cfg}")
-
-
-
 
 
 def resolve_directory(arg_dir: Path) -> Path:
@@ -50,16 +20,40 @@ def resolve_directory(arg_dir: Path) -> Path:
     return (arg_dir if arg_dir.is_absolute() else Path.cwd() / arg_dir).expanduser()
 
 
-def choose_config(args) -> str:
-    """Retorna o config a usar: override ou o default salvo, ou sai com erro."""
-    if args.use_config:
-        return args.use_config
-    default = read_default_config()
-    if default:
-        return default
-    print("Error: config not specified. Use --use-config or --set-config.", file=sys.stderr)
-    sys.exit(1)
+def handle_config_commands(args) -> bool:
+    """
+    Trata os comandos de configuração (--list-configs, --init-config,
+    --get-config, --clear-config, --set-config). Retorna True se
+    executou alguma ação e deve sair ali mesmo.
+    """
+    if args.list_configs:
+        current = read_default_config()
+        print("Available configs:")
+        for cfg in list_configs():
+            mark = "*" if cfg == current else " "
+            print(f"{mark} {cfg}")
+        return True
 
+    if args.init_config:
+        init_config(args.init_config)
+        return True
+
+    if args.show_config:
+        cur = read_default_config()
+        print(cur or "No default config set.")
+        return True
+
+    if args.clear_config:
+        clear_default_config()
+        print("Default config cleared.")
+        return True
+
+    if args.set_config:
+        write_default_config(args.set_config)
+        print(f"Default config set to: {args.set_config}")
+        return True
+
+    return False
 
 def run_collection(project_dir: Path, config_name: str, args):
     """Executa load_config → collect_file_content → build_tree → escreve pj_output.txt."""
@@ -96,8 +90,8 @@ def run_collection(project_dir: Path, config_name: str, args):
 def main():
     args = get_user_args()
 
-    # 1) Gerenciamento de configs: list, init, show, clear, set
-    if manage_config_commands(args):
+    # 1) Gerenciamento de configs via funções de config.py
+    if handle_config_commands(args):
         return
 
     # 2) Execução normal: precisa de directory
@@ -110,10 +104,8 @@ def main():
         print(f"Error: '{project_dir}' is not a valid directory.", file=sys.stderr)
         sys.exit(1)
 
-    # 3) Escolhe qual config usar
+    # 3) Escolhe qual config usar e executa a coleta
     config_name = choose_config(args)
-
-    # 4) Executa coleta e gera saída
     run_collection(project_dir, config_name, args)
 
 
