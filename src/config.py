@@ -1,7 +1,9 @@
 import json
+import os
 from pathlib import Path
+import subprocess
 import sys
-from typing import Any, List
+from typing import Any, List, Optional
 from .filter import PatternGroup, FilterConfig
 
 # Base dos JSONs no pacote
@@ -144,3 +146,34 @@ def choose_config(args) -> str:
         return default
     print("Error: config not specified. Use --use-config or --set-config.", file=sys.stderr)
     sys.exit(1)
+
+
+def open_config_in_editor(name: Optional[str] = None) -> None:
+    """
+    Abre no VSCode os arquivos defaults/<name>.json e requests/<name>.json.
+    Se name for None ou vazio, usa o padrão salvo em _DEFAULT_CFG_FILE.
+    Lança ValueError se algum não existir, ou FileNotFoundError se 'code' não estiver no PATH.
+    """
+    # determina o nome
+    if not name:
+        name = read_default_config()
+    if not name:
+        raise ValueError("Nenhum config padrão definido e nenhum CONFIG informado.")
+
+    def_path = _DEFAULTS_DIR  / f"{name}.json"
+    req_path = _REQUESTS_DIR  / f"{name}.json"
+
+    faltantes = [p for p in (def_path, req_path) if not p.exists()]
+    if faltantes:
+        raise ValueError(f"Arquivos não encontrados: {', '.join(str(p) for p in faltantes)}")
+
+    # chama o VSCode CLI
+    try:
+        subprocess.run(['code', str(def_path), str(req_path)], check=True)
+    except FileNotFoundError:
+        # fallback: abre com o app padrão de .json no Windows
+        os.startfile(str(def_path))
+        os.startfile(str(req_path))
+        return
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Falha ao abrir VSCode: {e}")

@@ -5,6 +5,7 @@ from .parser import get_user_args
 from .config import (
     choose_config,
     load_config,
+    open_config_in_editor,
     read_default_config,
     write_default_config,
     clear_default_config,
@@ -38,10 +39,19 @@ def handle_config_commands(args) -> bool:
         init_config(args.init_config)
         return True
 
-    if args.show_config:
+    if args.get_config:
         cur = read_default_config()
         print(cur or "No default config set.")
         return True
+    
+    if args.open_config is not None:
+        try:
+            open_config_in_editor(args.open_config or None)
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        return True
+
 
     if args.clear_config:
         clear_default_config()

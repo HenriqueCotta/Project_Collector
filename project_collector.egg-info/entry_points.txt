@@ -1,2 +1,2 @@
 [console_scripts]
-projcol = src.cli:run
+hpc = src.cli:run

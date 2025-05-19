@@ -20,7 +20,7 @@ def get_user_args():
             verbose: bool
     """
     parser = argparse.ArgumentParser(
-        prog='projcol',
+        prog='hpc',
         description='Project Collector: coleta conteúdo e exibe árvore de diretórios'
     )
     # Diretório alvo: opcional para comandos de gerenciamento
@@ -60,6 +60,23 @@ def get_user_args():
         action='store_true',
         dest='get_config',
         help='Mostra o config padrão atualmente definido'
+    )
+    group.add_argument(
+        '--open-config', '-ocfg',
+        nargs='?',
+        const='',              # se passado sem valor
+        metavar='CONFIG',
+        dest='open_config',
+        help=(
+            'Abre no VSCode os JSONs de defaults e requests do CONFIG. '
+            'Se sem CONFIG, abre o padrão salvo.'
+        )
+    )
+    group.add_argument(
+        '--init-config', '-icfg',
+        metavar='CONFIG',
+        dest='init_config',
+        help='Cria (se não existirem) os arquivos defaults/CONFIG.json e requests/CONFIG.json'
     )
     group.add_argument(
         '--list-configs', '-lcfg',

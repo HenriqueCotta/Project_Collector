@@ -6,7 +6,7 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [
-            'projcol=src.cli:run',
+            'hpc=src.cli:run',
         ],
     },
     install_requires=[],
