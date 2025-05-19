@@ -35,28 +35,28 @@ def get_user_args():
     group = parser.add_mutually_exclusive_group()
     # override temporário para esta execução
     group.add_argument(
-        '--use-config', '--ucfg',
+        '--use-config', '-ucfg',
         dest='use_config',
         metavar='CONFIG',
         help='Config temporário para esta execução (sobrescreve o padrão)'
     )
     # define config padrão
     group.add_argument(
-        '--set-config', '--scfg',
+        '--set-config', '-scfg',
         dest='set_config',
         metavar='CONFIG',
         help='Define CONFIG como padrão para futuras execuções'
     )
     # limpa config padrão
     group.add_argument(
-        '--clear-config', '--ccfg',
+        '--clear-config', '-ccfg',
         action='store_true',
         dest='clear_config',
         help='Limpa o config padrão, voltando ao estado sem padrão'
     )
     # mostra config padrão
     group.add_argument(
-        '--get-config', '--gcfg',
+        '--get-config', '-gcfg',
         action='store_true',
         dest='get_config',
         help='Mostra o config padrão atualmente definido'
