@@ -33,38 +33,41 @@ def collect_file_content(
 
     for dirpath, dirnames, filenames in os.walk(root):
         current = Path(dirpath)
-        # 1) Filtra subpastas para não descer nas ignoradas
-        kept_dirs = []
+        # caminho relativo da pasta atual (string sem ".")
+        rel = current.relative_to(root)
+        rel_dir = rel.as_posix() if str(rel) != "." else ""
+
+        # 1) Poda de subpastas
+        pruned = []
         for d in dirnames:
-            p = current / d
-            if flt.include_path(p, check_content=False):
-                kept_dirs.append(d)
-            elif verbose:
-                print(f"Ignoring directory: {p}")
-        dirnames[:] = kept_dirs
+            sub_rel = f"{rel_dir}/{d}" if rel_dir else d
+            if not flt.is_excluded_dir(current / d, sub_rel):
+                pruned.append(d)
+        dirnames[:] = pruned
 
         # 2) Processa arquivos
         for fname in filenames:
-            p = current / fname
-            if flt.include_path(p, check_content=only_tree):
-                rel = p.relative_to(root)
-                included.append(rel)
+            sub_rel = f"{rel_dir}/{fname}" if rel_dir else fname
+            full_path = current / fname
+            if flt.should_include(full_path, sub_rel, check_content=only_tree):
+                rel_path = Path(sub_rel)
+                included.append(rel_path)
                 if not only_tree:
+                    if verbose:
+                        print(f"Reading file: {full_path}")
                     try:
-                        if verbose:
-                            print(f"Reading file: {p}")
-                        text = p.read_text(encoding='utf-8', errors='ignore')
+                        text = full_path.read_text(encoding='utf-8', errors='ignore')
                         block = (
-                            f"\n--- {rel}:START ---\n"
+                            f"\n--- {rel_path}:START ---\n"
                             + text
-                            + f"\n--- {rel}:END ---\n"
+                            + f"\n--- {rel_path}:END ---\n"
                         )
                         content_blocks.append(block)
                     except Exception as e:
                         if verbose:
-                            print(f"Error reading file {p}: {e}")
+                            print(f"Error reading file {full_path}: {e}")
             elif verbose:
-                print(f"Ignoring file: {p}")
+                print(f"Ignoring file: {full_path}")
 
     full_content = "".join(content_blocks)
     return full_content, included

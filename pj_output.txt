@@ -1,3 +1,25 @@
+models
+├── >>> default_config.json <<<
+└── >>> request_config.json <<<
+
+
+
+--- default_config.json:START ---
+{
+    "DEFAULT_IGNORED_DIRS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "DEFAULT_IGNORED_FILES": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    }
+}
+--- default_config.json:END ---
+
+--- request_config.json:START ---
 {
     "ADDITIONAL_IGNORED_DIRS": {
         "GLOBS": [],
@@ -21,8 +43,7 @@
     },
     "INCLUDE_CONTENT_PATTERNS": {
         "REGEX": [],
-        "SUBSTRINGS": [
-            "UsersRepository"
-        ]
+        "SUBSTRINGS": []
     }
 }
+--- request_config.json:END ---

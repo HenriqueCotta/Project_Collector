@@ -25,74 +25,128 @@ class FilterConfig:
     include_content: PatternGroup
 
 class Filter:
-    """
-    Filtra arquivos e pastas com base num FilterConfig já validado.
-    """
     def __init__(self, cfg: FilterConfig):
-        # Combina defaults + additional para exclusão de diretórios
+        # Combina defaults + additional para exclusão\        
         self.exclude_dirs = PatternGroup(
             globs=cfg.default_ignored_dirs.globs + cfg.additional_ignored_dirs.globs,
             regex=cfg.default_ignored_dirs.regex + cfg.additional_ignored_dirs.regex,
             substrings=cfg.default_ignored_dirs.substrings + cfg.additional_ignored_dirs.substrings
         )
-        # Combina defaults + additional para exclusão de arquivos
         self.exclude_files = PatternGroup(
             globs=cfg.default_ignored_files.globs + cfg.additional_ignored_files.globs,
             regex=cfg.default_ignored_files.regex + cfg.additional_ignored_files.regex,
             substrings=cfg.default_ignored_files.substrings + cfg.additional_ignored_files.substrings
         )
-        # Includes diretos para pastas e arquivos
+        # Includes
         self.include_folder = cfg.include_folder
         self.include_file = cfg.include_file
-        # Conteúdo só usa regex e substrings, ignorando qualquer globs
         self.include_content = PatternGroup(
             globs=[],
             regex=cfg.include_content.regex,
             substrings=cfg.include_content.substrings
         )
+        # Flags
+        self._has_folder_inc = bool(
+            self.include_folder.globs
+            or self.include_folder.regex
+            or self.include_folder.substrings
+        )
+        self._has_file_inc = bool(
+            self.include_file.globs
+            or self.include_file.regex
+            or self.include_file.substrings
+        )
+        self._has_content_inc = bool(
+            self.include_content.regex
+            or self.include_content.substrings
+        )
 
     def _match(self, name: str, group: PatternGroup) -> bool:
-        # Glob patterns
+        # Glob
         for pat in group.globs:
             if fnmatch.fnmatch(name, pat):
                 return True
-        # Regex patterns
+        # Regex
         for pat in group.regex_patterns:
             if pat.search(name):
                 return True
-        # Substring patterns
+        # Substrings
         for sub in group.substrings:
             if sub in name:
                 return True
         return False
 
-    def include_path(self, path: Path, *, check_content: bool = False) -> bool:
-        # 0) Exclui diretórios com base em segmentos do caminho
-        for seg in path.parts:
-            if self._match(seg, self.exclude_dirs):
-                return False
-        # 1) Exclui arquivos cujo nome bate em padrões de exclusão
-        if path.is_file() and self._match(path.name, self.exclude_files):
-            return False
-        # 2) Se há padrões de pasta para incluir, exige batida em algum segmento
-        if (self.include_folder.globs or self.include_folder.regex or self.include_folder.substrings):
-            if not any(self._match(seg, self.include_folder) for seg in path.parts):
-                return False
-        # 3) Se há padrões de arquivo para incluir, exige batida no nome
-        if path.is_file() and (self.include_file.globs or self.include_file.regex or self.include_file.substrings):
-            if not self._match(path.name, self.include_file):
-                return False
-        # 4) Checagem de conteúdo: só regex e substrings, sem glob
-        if check_content and (self.include_content.regex or self.include_content.substrings):
-            try:
-                text = path.read_text(encoding='utf-8', errors='ignore')
-            except Exception:
-                return False
-            # Regex content
-            if any(p.search(text) for p in self.include_content.regex_patterns):
+    def is_excluded_dir(self, path: Path, relpath: str) -> bool:
+        """
+        True se algum segmento de relpath OU o próprio relpath casar com exclude_dirs.
+        """
+        if relpath:
+            segments = relpath.split('/')
+            for seg in segments:
+                if self._match(seg, self.exclude_dirs):
+                    return True
+            # multi-segment match
+            if self._match(relpath, self.exclude_dirs):
                 return True
-            # Substrings content
-            if any(sub in text for sub in self.include_content.substrings):
+        return False
+
+    def is_excluded_file(self, filename: str) -> bool:
+        return self._match(filename, self.exclude_files)
+
+    def matches_include_folder(self, rel_dir: str, parent_segments: List[str]) -> bool:
+        """
+        True se não há include_folder ativo OU
+        algum segmento casar OU rel_dir casar como multi-segmento.
+        """
+        if not self._has_folder_inc:
+            return True
+        for seg in parent_segments:
+            if self._match(seg, self.include_folder):
                 return True
+        if self._match(rel_dir, self.include_folder):
+            return True
+        return False
+
+    def matches_include_file(self, filename: str) -> bool:
+        if not self._has_file_inc:
+            return True
+        return self._match(filename, self.include_file)
+
+    def matches_include_content(self, path: Path) -> bool:
+        if not self._has_content_inc:
+            return True
+        try:
+            text = path.read_text(encoding='utf-8', errors='ignore')
+        except Exception:
             return False
+        for pat in self.include_content.regex_patterns:
+            if pat.search(text):
+                return True
+        for sub in self.include_content.substrings:
+            if sub in text:
+                return True
+        return False
+
+    def should_include(self, path: Path, relpath: str, check_content: bool = False) -> bool:
+        # 1) Exclude dirs
+        rel_dir = Path(relpath).parent.as_posix()
+        if self.is_excluded_dir(path.parent, rel_dir):
+            return False
+        # 2) Exclude files
+        if path.is_file() and self.is_excluded_file(path.name):
+            return False
+        # 3) Sem includes → inclui tudo não excluído
+        if not (self._has_folder_inc or self._has_file_inc or self._has_content_inc):
+            return True
+        # 4) Include folder
+        parent_segments = rel_dir.split('/') if rel_dir else []
+        if not self.matches_include_folder(rel_dir, parent_segments):
+            return False
+        # 5) Include file
+        if path.is_file() and not self.matches_include_file(path.name):
+            return False
+        # 6) Include content
+        if path.is_file() and check_content and not self.matches_include_content(path):
+            return False
+        # 7) Passou em tudo
         return True
