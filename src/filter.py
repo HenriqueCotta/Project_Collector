@@ -127,7 +127,7 @@ class Filter:
                 return True
         return False
 
-    def should_include(self, path: Path, relpath: str, check_content: bool = False) -> bool:
+    def should_include(self, path: Path, relpath: str) -> bool:
         # 1) Exclude dirs
         rel_dir = Path(relpath).parent.as_posix()
         if self.is_excluded_dir(path.parent, rel_dir):
@@ -146,7 +146,7 @@ class Filter:
         if path.is_file() and not self.matches_include_file(path.name):
             return False
         # 6) Include content
-        if path.is_file() and check_content and not self.matches_include_content(path):
+        if path.is_file() and not self.matches_include_content(path):
             return False
         # 7) Passou em tudo
         return True

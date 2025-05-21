@@ -30,6 +30,9 @@ def collect_file_content(
     flt = Filter(cfg)
     included: List[Path] = []
     content_blocks: List[str] = []
+    
+    # definimos quando checar conteúdo para includes
+    content_check = only_tree or flt._has_content_inc
 
     for dirpath, dirnames, filenames in os.walk(root):
         current = Path(dirpath)
@@ -49,7 +52,7 @@ def collect_file_content(
         for fname in filenames:
             sub_rel = f"{rel_dir}/{fname}" if rel_dir else fname
             full_path = current / fname
-            if flt.should_include(full_path, sub_rel, check_content=only_tree):
+            if flt.should_include(full_path, sub_rel):
                 rel_path = Path(sub_rel)
                 included.append(rel_path)
                 if not only_tree:
