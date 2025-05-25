@@ -1,0 +1,20 @@
+{
+    "DEFAULT_IGNORED_DIRS": {
+        "GLOBS": [
+            ".*",
+            "*.egg-info"
+        ],
+        "REGEX": [],
+        "SUBSTRINGS": [
+            "context_scripts"
+        ]
+    },
+    "DEFAULT_IGNORED_FILES": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": [
+            "output_coleta.txt",
+            "pj_output.txt"
+        ]
+    }
+}
