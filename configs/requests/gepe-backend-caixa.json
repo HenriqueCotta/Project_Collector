@@ -2,22 +2,20 @@
     "ADDITIONAL_IGNORED_DIRS": {
         "GLOBS": [],
         "REGEX": [],
-        "SUBSTRINGS": [
-            "__pycache__"
-        ]
+        "SUBSTRINGS": []
     },
     "ADDITIONAL_IGNORED_FILES": {
         "GLOBS": [],
         "REGEX": [],
-        "SUBSTRINGS": [
-            "requirements.txt"
-        ]
+        "SUBSTRINGS": []
     },
     "INCLUDE_FOLDER_PATTERNS": {
         "GLOBS": [],
         "REGEX": [],
         "SUBSTRINGS": [
-            "__tests__"
+            "src/controllers",
+            "src/usecases",
+            "src/data/models"
         ]
     },
     "INCLUDE_FILE_PATTERNS": {
@@ -27,6 +25,9 @@
     },
     "INCLUDE_CONTENT_PATTERNS": {
         "REGEX": [],
-        "SUBSTRINGS": []
+        "SUBSTRINGS": [
+            "date",
+            "time"
+        ]
     }
 }

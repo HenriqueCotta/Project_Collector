@@ -21,6 +21,7 @@
     },
     "INCLUDE_CONTENT_PATTERNS": {
         "REGEX": [],
-        "SUBSTRINGS": []
+        "SUBSTRINGS": [
+        ]
     }
 }

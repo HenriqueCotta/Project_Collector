@@ -1,0 +1,29 @@
+{
+    "DEFAULT_IGNORED_DIRS": {
+        "GLOBS": [
+            ".*"
+        ],
+        "REGEX": [],
+        "SUBSTRINGS": [
+            "node_modules",
+            "bash",
+            "documentation"
+        ]
+    },
+    "DEFAULT_IGNORED_FILES": {
+        "GLOBS": [
+            ".*"
+        ],
+        "REGEX": [],
+        "SUBSTRINGS": [
+            "handle.mjs",
+            "package.json",
+            "package-lock.json",
+            "jsconfig.json",
+            "README.md",
+            "serverless.yml",
+            "pj_output",
+            "vite.config.js"
+        ]
+    }
+}

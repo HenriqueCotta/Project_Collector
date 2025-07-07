@@ -1,0 +1,29 @@
+{
+    "DEFAULT_IGNORED_DIRS": {
+        "GLOBS": [
+            ".*",
+            "bash",
+            "context_scripts",
+            "docs",
+            "node_modules",
+            "test",
+            "docker-compose",
+            "package.json",
+            "tsconfig.json",
+            "debug"
+        ],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "DEFAULT_IGNORED_FILES": {
+        "GLOBS": [
+            ".*",
+            "jest.config.js",
+            "*.md",
+            "serverless.ts",
+            ".txt"
+        ],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    }
+}

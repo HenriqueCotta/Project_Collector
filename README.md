@@ -274,5 +274,79 @@ Quando uma IA interagir com o Project Collector, é vital que ela siga um métod
 
 Seguindo essas práticas, IAs evitarão filtros muito nichados ou vagos, loops intermináveis e intervenções humanas constantes.
 
+### 🧠 Pensamento Crítico para IAs
+
+Antes de acionar qualquer comando:
+
+1. **Defina seu objetivo com precisão**
+
+   * Que pergunta você quer responder?
+   * Que tipo de informação (arquivo inteiro, método específico, trecho de código) é realmente necessária?
+
+2. **Formule hipóteses de escopo usando pistas de contexto**
+
+      > **Nunca presuma nomes de pasta, arquivo ou conteúdo**.
+         Se você não tem certeza, comece usando filtros de conteúdo para descobrir onde o termo aparece, depois refine.
+
+   * Reúna tudo o que você já sabe sobre o alvo: nomes de arquivos, diretórios, conteúdo presente nos arquivos como funções, variáveis, tipos, comentários padrões de código relevantes ou qualquer outro.
+   * Combine filtros que aproveitem essas pistas, por exemplo:
+
+     * **Diretório + nome de arquivo** (ex.: `/sales/` + `subscriptions_controller.dart`)
+     * **Arquivo + trecho de código** (ex.: `subscriptions_controller.dart` + `void update(`)
+     * **Diretório + padrão de conteúdo** (ex.: `home/cash_register` + `history`)
+   * Avalie se a combinação reduz ruído sem omitir dados cruciais: busque o melhor equilíbrio entre foco e cobertura.
+
+3. **Avalie trade-offs de complexidade e volume de saída**
+
+   * **Complexidade do filtro:** padrões muito sofisticados podem ser frágeis e custosos para ajustar.
+   * **Tamanho do output:**
+
+     * Escopo estreito → risco de perder informações relevantes.
+     * Escopo amplo → excesso de dados e sobrecarga.
+   * Use julgamento crítico para decidir quais e quantos filtros aplicar em cada iteração, visando um resultado manejável e relevante.
+
+4. **Execute e revise qualitativamente**
+
+   * Rode o comando no escopo definido.
+   * Avalie:
+
+     * "Encontrei exatamente o que procurava?"
+     * "Faltou contexto para a próxima etapa?"
+     * "Veio ruído demais?"
+   * Registre brevemente o que funcionou e o que não foi eficaz.
+
+5. **Itere com propósito**
+
+   * Se o resultado atender ao objetivo → prossiga.
+   * Se não → ajuste seus filtros com base no feedback; reformule sua hipótese inicial se necessário.
+   * Documente suas decisões para facilitar futuras iterações.
+
+6. **Seleção e alternância de estratégias de busca**
+
+   * Identifique camadas de abordagem:
+      Utilizando prioridade filtro dependendo da abordagem, só incluindo um filtro de menor prioridade se realmente ouver necessiade.
+
+     * **Micro:** foco em arquivo ou conteúdo, com pistas claras.
+
+         * **Relação de prioridade**:
+
+            conteúdo > arquivo > diretório,
+
+     * **Médio:** foco em diretórios, módulos ou grupos de arquivos relacionados.
+     * **Macro:** visão do projeto inteiro, analisando estrutura geral, padrões ou dependências.
+
+         * **Relação de prioridade**:
+
+            diretório > arquivo > conteúdo,
+
+   * Escolha a camada inicial dependendo do seu conhecimento do alvo e do volume de dados esperado.
+   * Avalie a eficácia de cada camada:
+
+     * Se **micro** não for suficiente, escale para **médio** (ex.: filtrar pastas inteiras).
+     * Se **médio** ainda gerar ruído ou faltar contexto, escale para **macro** (mapear estrutura ampla) ou refine filtros.
+   * Mude de camada de forma consciente, anotando o motivo da transição para orientar futuras buscas.
+
+> **Dica:** antes de fornecer seu JSON de request, forneça um breve comentário sobre o “Objetivo da busca” e a “Hipótese de escopo” para dar contexto a qualquer iteração futura.
+
 * **Tarefas isoladas**: especifique uma única busca por vez (ex.: buscar padrões de pasta OU de conteúdo, não ambos simultaneamente sem validação).
 * **Confirmação de contexto**: peça à IA para validar a árvore e sugerir ajustes no JSON antes de coletar conteúdo.

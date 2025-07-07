@@ -1,0 +1,14 @@
+{
+    "DEFAULT_IGNORED_DIRS": {
+        "GLOBS": [
+            ".git"
+        ],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "DEFAULT_IGNORED_FILES": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    }
+}
