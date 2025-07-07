@@ -21,8 +21,6 @@
     },
     "INCLUDE_CONTENT_PATTERNS": {
         "REGEX": [],
-        "SUBSTRINGS": [
-            "UsersRepository"
-        ]
+        "SUBSTRINGS": []
     }
 }

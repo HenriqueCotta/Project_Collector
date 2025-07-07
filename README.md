@@ -89,11 +89,30 @@ Cada arquivo JSON de *request* deve conter:
 
 ```jsonc
 {
-  "ADDITIONAL_IGNORED_DIRS":    { "GLOBS":[], "REGEX":[], "SUBSTRINGS":[] },
-  "ADDITIONAL_IGNORED_FILES":   { "GLOBS":[], "REGEX":[], "SUBSTRINGS":[] },
-  "INCLUDE_FOLDER_PATTERNS":    { "GLOBS":[], "REGEX":[], "SUBSTRINGS":[] },
-  "INCLUDE_FILE_PATTERNS":      { "GLOBS":[], "REGEX":[], "SUBSTRINGS":[] },
-  "INCLUDE_CONTENT_PATTERNS":   { "REGEX":[],  "SUBSTRINGS":[] }
+    "ADDITIONAL_IGNORED_DIRS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "ADDITIONAL_IGNORED_FILES": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "INCLUDE_FOLDER_PATTERNS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "INCLUDE_FILE_PATTERNS": {
+        "GLOBS": [],
+        "REGEX": [],
+        "SUBSTRINGS": []
+    },
+    "INCLUDE_CONTENT_PATTERNS": {
+        "REGEX": [],
+        "SUBSTRINGS": []
+    }
 }
 ```
 
