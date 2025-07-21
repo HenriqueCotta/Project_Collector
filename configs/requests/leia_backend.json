@@ -12,9 +12,7 @@
     "INCLUDE_FOLDER_PATTERNS": {
         "GLOBS": [],
         "REGEX": [],
-        "SUBSTRINGS": [
-            "operation"
-        ]
+        "SUBSTRINGS": []
     },
     "INCLUDE_FILE_PATTERNS": {
         "GLOBS": [],
@@ -22,10 +20,7 @@
         "SUBSTRINGS": []
     },
     "INCLUDE_CONTENT_PATTERNS": {
-        "GLOBS": [],
         "REGEX": [],
-        "SUBSTRINGS": [
-            "TransferSubscriptionInvoiceItem("
-        ]
+        "SUBSTRINGS": []
     }
 }

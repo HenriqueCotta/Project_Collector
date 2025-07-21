@@ -1,16 +1,19 @@
 {
     "DEFAULT_IGNORED_DIRS": {
-        "GLOBS": [],
+        "GLOBS": [
+            ".*"
+        ],
         "REGEX": [],
         "SUBSTRINGS": [
-            ".gitignore",
-            "node_modules",
-            "__tests__"
+            "bash",
+            "doc"
         ]
     },
     "DEFAULT_IGNORED_FILES": {
         "GLOBS": [],
         "REGEX": [],
-        "SUBSTRINGS": []
+        "SUBSTRINGS": [
+            "README.md"
+        ]
     }
 }

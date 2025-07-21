@@ -257,7 +257,7 @@ Cada situação de uso pode demandar um fluxo diferente, sempre de forma iterati
 
 ---
 
-## 🛠️ Comandos Úteis
+## 🛠️ Comandos Existentes
 
 * `-ucfg, --use-config <nome>`: escolhe perfil temporário.
 * `-scfg, --set-config <nome>`: define perfil padrão.

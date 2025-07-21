@@ -130,6 +130,8 @@ class Filter:
     def should_include(self, path: Path, relpath: str) -> bool:
         # 1) Exclude dirs
         rel_dir = Path(relpath).parent.as_posix()
+        if rel_dir == ".":
+            rel_dir = ""
         if self.is_excluded_dir(path.parent, rel_dir):
             return False
         # 2) Exclude files
