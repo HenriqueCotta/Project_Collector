@@ -17,13 +17,7 @@
     "INCLUDE_FILE_PATTERNS": {
         "GLOBS": [],
         "REGEX": [],
-        "SUBSTRINGS": [
-            "class_participants.dart",
-            "class_participants_controller.dart",
-            "class_participants.dart",
-            "class_participants_controller.dart",
-            "class_volunteers.dart"
-        ]
+        "SUBSTRINGS": []
     },
     "INCLUDE_CONTENT_PATTERNS": {
         "REGEX": [],

@@ -1,22 +1,18 @@
 {
     "DEFAULT_IGNORED_DIRS": {
-        "GLOBS": [
-            ".*"
-        ],
+        "GLOBS": [],
         "REGEX": [],
         "SUBSTRINGS": [
-            ".gitignore",
-            "node_modules",
-            "__tests__",
-            ".git",
-            "pj_output.txt"
+            "node_modules"
         ]
     },
     "DEFAULT_IGNORED_FILES": {
         "GLOBS": [],
         "REGEX": [],
         "SUBSTRINGS": [
+            "package.json",
             "package-lock.json",
+            "tsconfig.json",
             "pj_output.txt"
         ]
     }

@@ -15,6 +15,10 @@ Ideal para análises iterativas de projetos, auxiliando tanto desenvolvedores qu
 pip install project-collector
 ```
 
+```bash
+pip install -e .
+```
+
 ---
 
 ## ⌨️ Uso da CLI

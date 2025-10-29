@@ -5,18 +5,25 @@
         ],
         "REGEX": [],
         "SUBSTRINGS": [
+            "android",
+            "assets",
             "bash",
-            "doc"
+            "ios",
+            "macos",
+            "linux",
+            "test",
+            "web",
+            "windows"
         ]
     },
     "DEFAULT_IGNORED_FILES": {
         "GLOBS": [
             ".*",
-            "*-lock.json"
+            "*.yaml",
+            "*.md",
+            "*.lock"
         ],
         "REGEX": [],
-        "SUBSTRINGS": [
-            "README.md"
-        ]
+        "SUBSTRINGS": []
     }
 }
